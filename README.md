@@ -18,6 +18,11 @@ downloaded file can move to a hosted knowledge base without code changes.
 
 ## Contents
 
+**New to Fuse knowledge bases?** Start with the
+[getting started guide](docs/getting-started.md). If your documents include
+employee information, read [Handling KB files safely](docs/handling-kb-files.md)
+before downloading. Something not working? See [Troubleshooting](docs/troubleshooting.md).
+
 - [Use it from Python](#use-it-from-python)
 - [Give it to an agent](#give-it-to-an-agent): Claude, OpenAI, MCP, agent skill
 - [Choosing providers](#choosing-providers): vector search, reranking, LLMs
@@ -25,6 +30,7 @@ downloaded file can move to a hosted knowledge base without code changes.
 - [Command line](#command-line)
 - [Security](#security)
 - [File format](docs/FORMAT.md)
+- Guides: [Getting started](docs/getting-started.md), [Handling KB files safely](docs/handling-kb-files.md), [Troubleshooting](docs/troubleshooting.md)
 
 ## Use it from Python
 
@@ -261,8 +267,13 @@ a `.sqlite` file.
   names discovered on the configured path resolve.
 - **Filters can't inject SQL.** Filter columns come from a fixed list and
   values are always bound parameters.
-- **A KB file contains your documents' text in the clear.** Treat it with the
-  same care as the documents themselves.
+- **A KB file contains your documents' text.** Treat it with the same care as
+  the documents themselves. See [Handling KB files safely](docs/handling-kb-files.md).
+- **Encrypted files are optional.** A PGP-encrypted download
+  (`handbook.sqlite.gpg`) opens like any other KB: fuse-kb decrypts it in
+  memory with your GnuPG keyring, or with a key from `FUSE_KB_PGP_KEY` /
+  `FUSE_KB_PGP_KEY_FILE` and `FUSE_KB_PGP_PASSPHRASE` for servers and agents.
+  No readable copy is written to disk. Needs GnuPG and Python 3.11+.
 
 ## License
 

@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional, Union
 
 from . import search as S
+from .encrypted import decrypt, is_encrypted, kb_name
 from .errors import EmbedderUnavailable, FuseKBError, ProviderError
 from .hit import Hit
 from .providers import (Embedder, LLM, Reranker, resolve_embedder, resolve_llm,
@@ -79,15 +80,30 @@ class KnowledgeBase:
     Nothing here calls a cloud service unless you configure a provider that
     does, or the file was built with a cloud embedder and you run a vector
     search.
+
+    PGP-encrypted files (``.sqlite.gpg``) are decrypted into memory; see
+    :mod:`fuse_kb.encrypted` for where the key comes from. ``pgp_*``
+    arguments are ignored for plain files.
     """
 
     def __init__(self, path: str | os.PathLike, *, embedder: ProviderArg = "auto",
                  reranker: ProviderArg = None, llm: ProviderArg = None,
-                 region: Optional[str] = None, name: Optional[str] = None):
+                 region: Optional[str] = None, name: Optional[str] = None,
+                 pgp_key: Optional[str] = None, pgp_key_file: Optional[str] = None,
+                 pgp_passphrase: Optional[str] = None):
         self.path = os.path.abspath(os.fspath(path))
-        self.name = name or os.path.splitext(os.path.basename(self.path))[0]
+        self.name = name or kb_name(os.path.basename(self.path))
         self.region = region
-        self._conn = S.open_db(self.path)
+        self.encrypted = is_encrypted(self.path)
+        if self.encrypted:
+            if not os.path.isfile(self.path):
+                raise FuseKBError(f"KB file not found: {self.path}")
+            data = decrypt(self.path, key=pgp_key, key_file=pgp_key_file,
+                           passphrase=pgp_passphrase)
+            self._conn = S.open_db_bytes(data, os.path.basename(self.path))
+            del data
+        else:
+            self._conn = S.open_db(self.path)
         self.meta = S.read_meta(self._conn)
         self.dims = S.vector_dims(self._conn) or _int(self.meta.get("embed_dims"))
         self.embed_spec = spec_from_meta(self.meta)
@@ -191,6 +207,7 @@ class KnowledgeBase:
             "dims": self.dims,
             "built": self.meta.get("build_finished"),
             "format": self.meta.get("format", "fuse-kb/1"),
+            "encrypted": self.encrypted,
             "reranker": getattr(self._reranker, "spec", None),
             "llm": getattr(self._llm, "spec", None),
         }

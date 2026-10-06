@@ -9,6 +9,7 @@ import sys
 from importlib import resources
 
 from . import __version__
+from .encrypted import is_encrypted
 from .errors import FuseKBError
 from .kb import MODES, KnowledgeBase
 from .library import ENV_PATH, KBLibrary
@@ -20,13 +21,15 @@ def _providers(args) -> dict:
         reranker=args.reranker or os.environ.get("FUSE_KB_RERANKER") or None,
         llm=args.llm or os.environ.get("FUSE_KB_LLM") or None,
         region=args.region,
+        pgp_key_file=getattr(args, "pgp_key_file", None),
     )
 
 
 def _open(args) -> KnowledgeBase:
     """KB argument: a path to a .sqlite file, or a name found on --path."""
     target = args.kb
-    if target and (target.endswith(".sqlite") or os.path.isfile(target)):
+    if target and (target.endswith(".sqlite") or is_encrypted(target)
+                   or os.path.isfile(target)):
         return KnowledgeBase(target, **_providers(args))
     return KBLibrary(args.path, **_providers(args)).get(target)
 
@@ -76,6 +79,9 @@ def main(argv=None) -> int:
     common.add_argument("--reranker", help="cohere | cross-encoder:<model> (env FUSE_KB_RERANKER)")
     common.add_argument("--llm", help="anthropic[:<model>] | bedrock:<id> | ollama:<model> | openai:<model> (env FUSE_KB_LLM)")
     common.add_argument("--region", help="AWS region for Bedrock providers")
+    common.add_argument("--pgp-key-file", help="Private key for encrypted .sqlite.gpg "
+                        "files (env FUSE_KB_PGP_KEY_FILE). Passphrase: env "
+                        "FUSE_KB_PGP_PASSPHRASE. Default: your GnuPG keyring.")
     common.add_argument("--json", action="store_true", help="Print JSON")
 
     p = argparse.ArgumentParser(prog="fuse-kb", description="Search Fuse knowledge-base files.")

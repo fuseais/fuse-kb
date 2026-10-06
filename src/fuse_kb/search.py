@@ -66,6 +66,28 @@ def open_db(path: str | os.PathLike) -> sqlite3.Connection:
         raise FuseKBError(f"KB file not found: {path}")
     conn = sqlite3.connect(f"file:{path}?mode=ro&immutable=1", uri=True,
                            check_same_thread=False)
+    return _prepare(conn, path)
+
+
+def open_db_bytes(data: bytes, label: str) -> sqlite3.Connection:
+    """Open a KB held in memory (a decrypted file), read-only.
+
+    The database never touches disk. Requires Python 3.11+.
+    """
+    if not data.startswith(b"SQLite format 3\x00"):
+        raise KBFormatError(f"{label} did not decrypt to a SQLite database")
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    if not hasattr(conn, "deserialize"):
+        conn.close()
+        raise FuseKBError("Opening encrypted KB files needs Python 3.11 or newer")
+    conn.deserialize(data)
+    conn = _prepare(conn, label)
+    conn.execute("PRAGMA query_only = ON")
+    return conn
+
+
+def _prepare(conn: sqlite3.Connection, label: str) -> sqlite3.Connection:
+    """Load sqlite-vec and check that this is a fuse-kb knowledge base."""
     conn.row_factory = sqlite3.Row
     try:
         conn.enable_load_extension(True)
@@ -83,12 +105,12 @@ def open_db(path: str | os.PathLike) -> sqlite3.Connection:
             "SELECT name FROM sqlite_master WHERE type IN ('table', 'view')")}
     except sqlite3.DatabaseError as exc:
         conn.close()
-        raise KBFormatError(f"{path} is not a SQLite database: {exc}") from exc
+        raise KBFormatError(f"{label} is not a SQLite database: {exc}") from exc
     missing = {"chunks", "chunks_fts"} - names
     if missing:
         conn.close()
         raise KBFormatError(
-            f"{path} is not a fuse-kb knowledge base "
+            f"{label} is not a fuse-kb knowledge base "
             f"(missing tables: {', '.join(sorted(missing))})")
     return conn
 

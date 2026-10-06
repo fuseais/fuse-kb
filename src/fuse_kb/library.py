@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 from typing import Iterable, Optional
 
+from .encrypted import is_encrypted, kb_name
 from .errors import FuseKBError
 from .kb import KnowledgeBase, ProviderArg, _provider
 from .providers import resolve_llm, resolve_reranker
@@ -15,7 +16,8 @@ DEFAULT_PATH = "kbs"
 class KBLibrary:
     """Every ``.sqlite`` KB in the given folders or files, by name.
 
-    A KB's name is its file name without ``.sqlite``. Only discovered names
+    A KB's name is its file name without ``.sqlite`` (or ``.sqlite.gpg``
+    for a PGP-encrypted file, which is decrypted into memory on first use). Only discovered names
     can be opened, so a name supplied by an agent or user can't reach other
     files on disk.
 
@@ -26,7 +28,9 @@ class KBLibrary:
 
     def __init__(self, paths: str | os.PathLike | Iterable[str | os.PathLike] | None = None,
                  *, embedder: ProviderArg = "auto", reranker: ProviderArg = None,
-                 llm: ProviderArg = None, region: Optional[str] = None):
+                 llm: ProviderArg = None, region: Optional[str] = None,
+                 pgp_key: Optional[str] = None, pgp_key_file: Optional[str] = None,
+                 pgp_passphrase: Optional[str] = None):
         if paths is None:
             paths = os.environ.get(ENV_PATH) or DEFAULT_PATH
         if isinstance(paths, (str, os.PathLike)):
@@ -36,13 +40,14 @@ class KBLibrary:
             p = os.path.abspath(os.path.expanduser(os.fspath(p)))
             if os.path.isdir(p):
                 for entry in sorted(os.listdir(p)):
-                    if entry.endswith(".sqlite"):
-                        self._files.setdefault(entry[:-len(".sqlite")],
-                                               os.path.join(p, entry))
+                    if entry.endswith(".sqlite") or is_encrypted(entry):
+                        self._files.setdefault(kb_name(entry), os.path.join(p, entry))
             elif os.path.isfile(p):
-                self._files.setdefault(os.path.splitext(os.path.basename(p))[0], p)
+                self._files.setdefault(kb_name(os.path.basename(p)), p)
         self._provider_args = dict(embedder=embedder, reranker=reranker,
                                    llm=llm, region=region)
+        self._pgp = dict(pgp_key=pgp_key, pgp_key_file=pgp_key_file,
+                         pgp_passphrase=pgp_passphrase)
         self._open: dict[str, KnowledgeBase] = {}
         self._backends: dict = {}
         self._shared: dict = {}
@@ -84,7 +89,7 @@ class KBLibrary:
                 + (", ".join(self.names) or "none"))
         if name not in self._open:
             self._open[name] = KnowledgeBase(self._files[name], name=name,
-                                             **self._shared_providers())
+                                             **self._shared_providers(), **self._pgp)
         return self._open[name]
 
     def _shared_providers(self) -> dict:
