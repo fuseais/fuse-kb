@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+# Knowledge-base files hold document text; never commit real ones.
+*.sqlite
+*.sqlite-*
+kbs/
+.env
