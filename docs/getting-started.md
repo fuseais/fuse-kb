@@ -92,7 +92,7 @@ If you see a line starting with `note:`, read it. The most common one is
 this computer. Keyword results are still useful; step 5 explains how to turn
 on the rest.
 
-## 4. Connect it to Claude
+## 4. Connect it to an assistant
 
 fuse-kb includes an MCP server, which lets Claude search your knowledge bases
 directly and cite the pages it used.
@@ -103,7 +103,17 @@ directly and cite the pages it used.
 claude mcp add fuse-kb -- fuse-kb mcp --path ~/kbs
 ```
 
-**Claude Desktop:** open Settings, then Developer, then Edit Config, and add:
+**Claude Desktop (easiest, no terminal):** download `fuse-kb.mcpb` from the
+[releases page](https://github.com/fuseais/fuse-kb/releases) and double-click
+it. Claude Desktop installs it as the **Fuse Knowledge Bases** extension and
+asks for your knowledge base folder. Choose the folder with your downloaded
+`.sqlite` files, then ask something like "What does our handbook say about
+parental leave?" Claude searches the knowledge base and cites the documents
+and pages it used. You don't need to install Python or fuse-kb for this route;
+the extension brings what it needs.
+
+**Claude Desktop (manual setup):** if you already installed fuse-kb, you can
+instead open Settings, then Developer, then Edit Config, and add:
 
 ```json
 {
@@ -117,9 +127,26 @@ claude mcp add fuse-kb -- fuse-kb mcp --path ~/kbs
 ```
 
 Use full paths: run `which fuse-kb` (macOS and Linux) or `where fuse-kb`
-(Windows) to find the command's location. Restart Claude Desktop, then ask
-something like "What does our handbook say about parental leave?" Claude will
-search the KB and cite the documents and pages it used.
+(Windows) to find the command's location, then restart Claude Desktop.
+
+**GitHub Copilot in VS Code:** add the server to `.vscode/mcp.json` in your
+project (or your user MCP configuration), then use Copilot Chat in agent mode:
+
+```json
+{
+  "servers": {
+    "fuse-kb": {
+      "type": "stdio",
+      "command": "fuse-kb",
+      "args": ["mcp", "--path", "${userHome}/kbs"]
+    }
+  }
+}
+```
+
+**Microsoft 365 Copilot** can't run tools on your computer, so it can't search
+a downloaded file. It can connect to hosted Fuse knowledge bases through
+Copilot Studio.
 
 To teach Claude how to search well (which tool to use when, how to cite), also
 install the fuse-kb skill:

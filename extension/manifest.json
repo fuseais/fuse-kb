@@ -1,0 +1,108 @@
+{
+  "manifest_version": "0.4",
+  "name": "fuse-kb",
+  "display_name": "Fuse Knowledge Bases",
+  "version": "0.1.0",
+  "description": "Ask Claude questions about your organization's documents, with answers cited to the document and page.",
+  "long_description": "Search the knowledge bases you build in Fuse and download as .sqlite files. Choose the folder where you keep them, then ask Claude about your HR, payroll, finance, IT, or legal documents. Search runs on your computer: keyword search works with no setup, and search by meaning uses the model each knowledge base was built with. Text in documents that tries to give instructions to an AI is removed before Claude sees it.",
+  "author": {
+    "name": "Fuse",
+    "url": "https://fuseais.com"
+  },
+  "homepage": "https://github.com/fuseais/fuse-kb",
+  "documentation": "https://github.com/fuseais/fuse-kb/blob/main/docs/getting-started.md",
+  "support": "https://github.com/fuseais/fuse-kb/issues",
+  "server": {
+    "type": "uv",
+    "entry_point": "src/server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${__dirname}",
+        "src/server.py",
+        "--path=${user_config.kb_folder}",
+        "--reranker=${user_config.reranker}",
+        "--pgp-key-file=${user_config.pgp_key_file}"
+      ],
+      "env": {
+        "FUSE_KB_PGP_PASSPHRASE": "${user_config.pgp_passphrase}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "kb_list",
+      "description": "List the knowledge bases in your folder"
+    },
+    {
+      "name": "kb_research",
+      "description": "Search a knowledge base for passages that answer a question"
+    },
+    {
+      "name": "kb_search",
+      "description": "Search with one method: hybrid, keyword, meaning, or metadata"
+    },
+    {
+      "name": "kb_read_pages",
+      "description": "Read consecutive pages of one document"
+    },
+    {
+      "name": "kb_documents",
+      "description": "List the documents in a knowledge base"
+    }
+  ],
+  "user_config": {
+    "kb_folder": {
+      "type": "directory",
+      "title": "Knowledge base folder",
+      "description": "The folder where you keep knowledge base files downloaded from Fuse (.sqlite or .sqlite.gpg).",
+      "required": true
+    },
+    "reranker": {
+      "type": "string",
+      "title": "Reranker (optional)",
+      "description": "Improves result ordering. Leave blank for none. 'cohere' uses AWS Bedrock and needs AWS credentials.",
+      "required": false
+    },
+    "pgp_key_file": {
+      "type": "file",
+      "title": "PGP private key file (optional)",
+      "description": "Only for encrypted downloads (.sqlite.gpg) when your key isn't in GnuPG on this computer.",
+      "required": false
+    },
+    "pgp_passphrase": {
+      "type": "string",
+      "title": "PGP key passphrase (optional)",
+      "description": "Only for encrypted downloads. Stored securely by Claude.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "python": ">=3.11"
+    }
+  },
+  "keywords": [
+    "knowledge base",
+    "rag",
+    "search",
+    "hr",
+    "payroll",
+    "finance",
+    "legal",
+    "documents"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fuseais/fuse-kb"
+  }
+}

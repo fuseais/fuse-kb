@@ -1,0 +1,10 @@
+[project]
+name = "fuse-kb-extension"
+version = "0.1.0"
+description = "Fuse Knowledge Bases desktop extension (runs the bundled fuse_kb MCP server)"
+requires-python = ">=3.11"
+dependencies = [
+    "sqlite-vec>=0.1.6",
+    "mcp>=1.2",
+    "boto3>=1.28",
+]

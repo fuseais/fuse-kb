@@ -47,9 +47,12 @@ fuse-kb research handbook "how much parental leave do we offer?" --path ~/kbs
 
 Then connect it to Claude so you can ask questions in plain language:
 
-```bash
-claude mcp add fuse-kb -- fuse-kb mcp --path ~/kbs
-```
+- **Claude Desktop:** download `fuse-kb.mcpb` from the
+  [releases page](https://github.com/fuseais/fuse-kb/releases), double-click
+  it, and choose your knowledge base folder. No terminal needed.
+- **Claude Code:** `claude mcp add fuse-kb -- fuse-kb mcp --path ~/kbs`
+- **GitHub Copilot, Cursor, and other MCP apps:** see
+  [Connect it](docs/getting-started.md#4-connect-it-to-an-assistant).
 
 ## Guides
 
@@ -196,6 +199,14 @@ Or in a client's MCP config file:
 ```
 
 Use `--transport streamable-http --port 8765` to serve over HTTP instead of stdio.
+
+### Claude Desktop extension
+
+`python scripts/build_extension.py` builds `dist/fuse-kb.mcpb`, a one-click
+Claude Desktop extension that bundles fuse-kb and its MCP server. Claude
+Desktop installs Python and the dependencies itself, then asks the user for
+their knowledge base folder, an optional reranker, and an optional PGP key for
+encrypted files. Attach the file to a GitHub release to distribute it.
 
 ### Agent skill
 
