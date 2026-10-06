@@ -20,26 +20,21 @@ everything in it.
 
 ## Decide what belongs in a downloadable KB
 
-Downloadable KBs suit content that everyone who uses the KB may see.
+Downloadable KBs suit content that everyone who uses the KB may see:
+policies, procedures, guides, and reference material.
 
-**Good fits:**
+| Area | Good fits | Keep out of downloadable KBs |
+|---|---|---|
+| **HR** | Handbooks, leave and benefits policies, onboarding guides | Employee files, medical and accommodation records, investigations |
+| **Payroll** | Pay calendars, withholding guides, procedures | SSNs, bank and routing numbers, pay registers, garnishment orders |
+| **Finance** | Expense and travel policies, approval matrices, close checklists | Unreleased financials, vendor bank details, deal documents |
+| **IT** | Runbooks, security policies, how-to guides | Credentials, network diagrams, vulnerability reports |
+| **Legal** | Templates, compliance manuals, regulatory guidance | Privileged advice, active matters, signed agreements with confidential terms |
 
-- Employee handbooks and policies
-- Benefits guides, plan summaries, and carrier documents
-- Payroll procedures, calendars, and tax-form guidance
-- Compliance references and internal how-to guides
-
-**Keep out of downloadable KBs:**
-
-- Social Security numbers, tax IDs, and bank or routing numbers
-- Individual pay rates, offers, and payroll registers
-- Medical, leave, disability, and accommodation records
-- Garnishments, background checks, and investigations
-- Any file about a specific employee
-
-For employee-level records, use a hosted Fuse knowledge base. Hosted access is
-controlled per user, and nothing sits in a file that can be copied. The same
-agent tools work with both, so you don't need to rebuild anything to switch.
+For records about specific people, deals, or matters, use a hosted Fuse
+knowledge base. Hosted access is controlled per user, and nothing sits in a
+file that can be copied. The same agent tools work with both, so you don't
+need to rebuild anything to switch.
 
 ## Encrypted downloads
 
@@ -48,8 +43,8 @@ test, and they're fine for non-sensitive documents. Choose encrypted
 downloads when files will be stored or shared outside a tightly controlled
 location.
 
-Encrypted downloads use **PGP**, the same encryption most payroll providers,
-benefit carriers, and banks use for file exchanges. If your organization
+Encrypted downloads use **PGP**, the same encryption payroll providers, benefit
+carriers, banks, and many legal and finance systems use for file exchanges. If your organization
 already exchanges PGP-encrypted files with vendors, you can use the same
 process and tools.
 

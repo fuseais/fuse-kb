@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fuse-kb Technical Guide</title>
+<meta name="description" content="How fuse-kb searches Fuse knowledge bases: architecture, hybrid search and ranking, providers, agent integration, and the security model.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #F6F7F4;
+    --surface: #FFFFFF;
+    --surface-2: #EEF1EC;
+    --ink: #18221D;
+    --ink-soft: #4E5C55;
+    --rule: #D7DED8;
+    --accent: #1D6B52;
+    --accent-ink: #145240;
+    --accent-soft: #E1EEE8;
+    --warn: #8A5A0B;
+    --warn-soft: #F7EEDC;
+    --code-bg: #EEF1EC;
+    --diagram-line: #8FA69A;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #111714;
+      --surface: #18201C;
+      --surface-2: #1F2924;
+      --ink: #E4EAE6;
+      --ink-soft: #9DADA4;
+      --rule: #2C3832;
+      --accent: #5FC39F;
+      --accent-ink: #8AD8BA;
+      --accent-soft: #16302A;
+      --warn: #E2B25C;
+      --warn-soft: #2E2615;
+      --code-bg: #1F2924;
+      --diagram-line: #557064;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #111714;
+    --surface: #18201C;
+    --surface-2: #1F2924;
+    --ink: #E4EAE6;
+    --ink-soft: #9DADA4;
+    --rule: #2C3832;
+    --accent: #5FC39F;
+    --accent-ink: #8AD8BA;
+    --accent-soft: #16302A;
+    --warn: #E2B25C;
+    --warn-soft: #2E2615;
+    --code-bg: #1F2924;
+    --diagram-line: #557064;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font: 16px/1.65 "Public Sans", "Segoe UI", system-ui, sans-serif;
+  }
+  a { color: var(--accent-ink); text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+  @media (min-width: 980px) {
+    .layout { grid-template-columns: 230px minmax(0, 1fr); gap: 56px; padding: 0 32px; }
+  }
+
+  header.top {
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface);
+  }
+  header.top .inner {
+    max-width: 1180px; margin: 0 auto; padding: 14px 16px;
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  }
+  @media (min-width: 980px) { header.top .inner { padding: 14px 32px; } }
+  .wordmark { font-weight: 800; letter-spacing: -0.01em; font-size: 1.05rem; color: var(--ink); text-decoration: none; }
+  .wordmark span { color: var(--accent); }
+  .crumbs { color: var(--ink-soft); font-size: 0.88rem; }
+
+  nav.toc { padding: 28px 0 0; }
+  @media (min-width: 980px) {
+    nav.toc { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 40px 0; }
+  }
+  nav.toc details { border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); padding: 10px 14px; }
+  @media (min-width: 980px) { nav.toc details { border: 0; background: none; padding: 0; } nav.toc summary { display: none; } }
+  nav.toc summary { cursor: pointer; font-weight: 600; }
+  nav.toc ol { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 2px; counter-reset: sec; }
+  nav.toc li a {
+    display: block; padding: 4px 10px; border-left: 2px solid transparent;
+    color: var(--ink-soft); text-decoration: none; font-size: 0.9rem;
+  }
+  nav.toc li a:hover { color: var(--ink); border-left-color: var(--rule); }
+  nav.toc .toc-label {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-soft); margin: 0 0 6px 10px;
+  }
+
+  main { padding: 40px 0 96px; min-width: 0; }
+  .hero { max-width: 72ch; margin-bottom: 48px; }
+  .eyebrow {
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--accent-ink); margin: 0 0 10px;
+  }
+  h1 { font-size: clamp(2rem, 4vw, 2.6rem); line-height: 1.12; letter-spacing: -0.02em; font-weight: 800; margin: 0 0 16px; text-wrap: balance; }
+  .lede { font-size: 1.13rem; color: var(--ink-soft); margin: 0; }
+
+  section { max-width: 76ch; padding-top: 12px; margin-bottom: 52px; }
+  section.wide { max-width: none; }
+  h2 {
+    font-size: 1.55rem; line-height: 1.25; letter-spacing: -0.01em; font-weight: 750;
+    margin: 0 0 14px; padding-top: 22px; border-top: 1px solid var(--rule);
+    text-wrap: balance; scroll-margin-top: 16px;
+  }
+  h3 { font-size: 1.1rem; font-weight: 700; margin: 30px 0 8px; scroll-margin-top: 16px; }
+  p { margin: 0 0 14px; }
+  ul, ol.steps { margin: 0 0 16px; padding-left: 1.3rem; }
+  li { margin-bottom: 6px; }
+
+  code, pre { font-family: "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace; }
+  :not(pre) > code {
+    background: var(--code-bg); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 0.05em 0.35em; font-size: 0.86em;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--rule); border-radius: 8px;
+    padding: 14px 16px; overflow-x: auto; font-size: 0.84rem; line-height: 1.6; margin: 0 0 18px;
+  }
+  pre .c { color: var(--ink-soft); font-style: italic; }
+
+  .table-wrap { overflow-x: auto; margin: 0 0 20px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 14px; border-bottom: 1px solid var(--rule); }
+  tr:last-child td { border-bottom: 0; }
+  th {
+    background: var(--surface-2); font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--ink-soft);
+  }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .callout {
+    border: 1px solid var(--rule); border-left: 4px solid var(--accent); background: var(--accent-soft);
+    border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 0 0 18px; font-size: 0.95rem;
+  }
+  .callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .callout strong { color: var(--ink); }
+
+  figure { margin: 6px 0 26px; }
+  figure .diagram {
+    background: var(--surface); border: 1px solid var(--rule); border-radius: 10px;
+    padding: 18px; overflow-x: auto;
+  }
+  figure svg { display: block; min-width: 640px; width: 100%; height: auto; }
+  figcaption { font-size: 0.86rem; color: var(--ink-soft); margin-top: 8px; }
+  svg .box { fill: var(--surface-2); stroke: var(--rule); }
+  svg .box-accent { fill: var(--accent-soft); stroke: var(--accent); }
+  svg .t { fill: var(--ink); font: 600 13px "Public Sans", system-ui, sans-serif; }
+  svg .ts { fill: var(--ink-soft); font: 400 11.5px "Public Sans", system-ui, sans-serif; }
+  svg .line { stroke: var(--diagram-line); stroke-width: 1.5; fill: none; }
+  svg .arrow { fill: var(--diagram-line); }
+
+  .grid-cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin: 0 0 20px; }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; }
+  .card h4 { margin: 0 0 4px; font-size: 0.98rem; }
+  .card p { margin: 0; font-size: 0.9rem; color: var(--ink-soft); }
+
+  footer { border-top: 1px solid var(--rule); padding: 22px 0; color: var(--ink-soft); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="inner">
+    <a class="wordmark" href="https://github.com/fuseais/fuse-kb">fuse<span>-kb</span></a>
+    <span class="crumbs">Technical guide · version 0.1</span>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="toc" aria-label="Contents">
+    <details open>
+      <summary>Contents</summary>
+      <p class="toc-label">On this page</p>
+      <ol>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#kb-file">Inside a knowledge base</a></li>
+        <li><a href="#search">How search works</a></li>
+        <li><a href="#ranking">Ranking: RRF and reranking</a></li>
+        <li><a href="#research">Research and answers</a></li>
+        <li><a href="#providers">Providers</a></li>
+        <li><a href="#agents">Agent integration</a></li>
+        <li><a href="#backends">Hosted backends</a></li>
+        <li><a href="#security">Security model</a></li>
+        <li><a href="#encryption">Encrypted files</a></li>
+        <li><a href="#results">Reading results</a></li>
+        <li><a href="#config">Configuration</a></li>
+        <li><a href="#evaluating">Evaluating RAG on your documents</a></li>
+      </ol>
+    </details>
+  </nav>
+
+  <main>
+    <div class="hero">
+      <p class="eyebrow">Technical guide</p>
+      <h1>How fuse-kb finds, ranks, and protects answers from enterprise documents</h1>
+      <p class="lede">For engineers and architects evaluating retrieval-augmented generation
+      on HR, Payroll, Finance, IT, and Legal content. Covers the architecture, the
+      search and ranking pipeline, model providers, agent integration, and the security
+      model. For a first run, start with the
+      <a href="https://github.com/fuseais/fuse-kb/blob/main/docs/getting-started.md">getting started guide</a>.</p>
+    </div>
+
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>A <strong>knowledge base (KB)</strong> is a document collection that Fuse has
+      split into passages, tagged, and indexed. fuse-kb is the open-source library that
+      searches KBs from anywhere: a terminal, Claude, or your own agents. It has five parts:</p>
+      <div class="grid-cards">
+        <div class="card"><h4>The KB file</h4><p>One SQLite file with passages, a keyword index, vector embeddings, metadata, and extracted entities.</p></div>
+        <div class="card"><h4>The search library</h4><p>Keyword, vector, metadata, and hybrid search with fusion and reranking, plus grounded answers.</p></div>
+        <div class="card"><h4>Agent surfaces</h4><p>Tool definitions for the Claude and OpenAI APIs, an MCP server, a CLI, and an agent skill.</p></div>
+        <div class="card"><h4>Providers</h4><p>Optional embedders, rerankers, and LLMs: Bedrock, Anthropic, OpenAI-compatible, Ollama, or local models.</p></div>
+        <div class="card"><h4>Backends</h4><p>A common interface so the same tools work with downloaded files and hosted Fuse knowledge bases.</p></div>
+      </div>
+      <p>Everything beyond keyword search is opt-in. With no providers configured,
+      fuse-kb makes no network calls at all.</p>
+    </section>
+
+    <section id="architecture" class="wide">
+      <h2>Architecture</h2>
+      <p style="max-width:76ch">Fuse handles ingestion: extracting text and tables, tagging passages,
+      and building the indexes. fuse-kb handles retrieval wherever the KB ends up.</p>
+      <figure>
+        <div class="diagram">
+          <svg viewBox="0 0 900 250" role="img" aria-labelledby="arch-t arch-d">
+            <title id="arch-t">fuse-kb architecture</title>
+            <desc id="arch-d">Documents are ingested by Fuse into a knowledge base, either downloaded as a file or hosted. fuse-kb searches either one and serves the command line, Python, agent tools, and MCP clients.</desc>
+            <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+            <rect class="box" x="10" y="85" width="140" height="80" rx="8"/>
+            <text class="t" x="80" y="118" text-anchor="middle">Your documents</text>
+            <text class="ts" x="80" y="138" text-anchor="middle">PDF, Word, HTML, Excel</text>
+            <rect class="box" x="200" y="60" width="180" height="130" rx="8"/>
+            <text class="t" x="290" y="88" text-anchor="middle">Fuse ingestion</text>
+            <text class="ts" x="290" y="112" text-anchor="middle">extract text and tables</text>
+            <text class="ts" x="290" y="132" text-anchor="middle">tag passages and entities</text>
+            <text class="ts" x="290" y="152" text-anchor="middle">remove injected text</text>
+            <text class="ts" x="290" y="172" text-anchor="middle">embed and index</text>
+            <rect class="box" x="430" y="40" width="160" height="70" rx="8"/>
+            <text class="t" x="510" y="70" text-anchor="middle">KB file</text>
+            <text class="ts" x="510" y="90" text-anchor="middle">.sqlite or .sqlite.gpg</text>
+            <rect class="box" x="430" y="140" width="160" height="70" rx="8"/>
+            <text class="t" x="510" y="170" text-anchor="middle">Hosted KB</text>
+            <text class="ts" x="510" y="190" text-anchor="middle">per-user access control</text>
+            <rect class="box-accent" x="640" y="60" width="110" height="130" rx="8"/>
+            <text class="t" x="695" y="120" text-anchor="middle">fuse-kb</text>
+            <text class="ts" x="695" y="140" text-anchor="middle">search + rank</text>
+            <rect class="box" x="790" y="30" width="100" height="40" rx="6"/><text class="ts" x="840" y="55" text-anchor="middle">CLI</text>
+            <rect class="box" x="790" y="80" width="100" height="40" rx="6"/><text class="ts" x="840" y="105" text-anchor="middle">Python</text>
+            <rect class="box" x="790" y="130" width="100" height="40" rx="6"/><text class="ts" x="840" y="155" text-anchor="middle">Agent tools</text>
+            <rect class="box" x="790" y="180" width="100" height="40" rx="6"/><text class="ts" x="840" y="205" text-anchor="middle">MCP clients</text>
+            <path class="line" d="M150 125 H200" marker-end="url(#ah)"/>
+            <path class="line" d="M380 100 H405 V75 H430" marker-end="url(#ah)"/>
+            <path class="line" d="M380 150 H405 V175 H430" marker-end="url(#ah)"/>
+            <path class="line" d="M590 75 H615 V110 H640" marker-end="url(#ah)"/>
+            <path class="line" d="M590 175 H615 V140 H640" marker-end="url(#ah)"/>
+            <path class="line" d="M750 100 H770 V50 H790" marker-end="url(#ah)"/>
+            <path class="line" d="M750 110 H770 V100 H790" marker-end="url(#ah)"/>
+            <path class="line" d="M750 140 H770 V150 H790" marker-end="url(#ah)"/>
+            <path class="line" d="M750 150 H770 V200 H790" marker-end="url(#ah)"/>
+          </svg>
+        </div>
+        <figcaption>Ingestion happens once, in Fuse. Retrieval runs wherever the knowledge base lives.</figcaption>
+      </figure>
+    </section>
+
+    <section id="kb-file">
+      <h2>Inside a knowledge base</h2>
+      <p>A KB file is a standard SQLite database with three retrieval levels in one file.
+      The full specification is in <a href="https://github.com/fuseais/fuse-kb/blob/main/docs/FORMAT.md">FORMAT.md</a>.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Table</th><th>What it holds</th><th>Used for</th></tr>
+        <tr><td><code>chunks</code></td><td>Passage text, document and page, source, category, domain, jurisdiction</td><td>Results, citations, metadata filters</td></tr>
+        <tr><td><code>chunks_fts</code></td><td>SQLite FTS5 index, Porter stemming</td><td>Keyword search (BM25)</td></tr>
+        <tr><td><code>chunks_vec</code></td><td>One embedding per passage (sqlite-vec)</td><td>Search by meaning</td></tr>
+        <tr><td><code>entities</code></td><td>Extracted people, organizations, dates, amounts, form numbers</td><td>Answer hints, analysis</td></tr>
+        <tr><td><code>_meta</code></td><td>Build details, including <code>embed_spec</code>: the model that made the vectors</td><td>Choosing the query embedder</td></tr>
+      </table></div>
+      <p>Fuse extracts tables as Markdown grids, so values stay attached to their row and
+      column labels ("Gold Plan | Monthly fee | $630"), which matters for questions about
+      figures.</p>
+    </section>
+
+    <section id="search">
+      <h2>How search works</h2>
+      <p>fuse-kb offers four search modes. Hybrid is the default and the right choice for
+      most questions.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Mode</th><th>How it works</th><th>Best for</th></tr>
+        <tr><td><code>hybrid</code></td><td>Keyword and vector candidates combined with Reciprocal Rank Fusion, optionally reranked</td><td>Most questions</td></tr>
+        <tr><td><code>lexical</code></td><td>BM25 keyword ranking; <code>phrase</code> matches an exact phrase</td><td>Names, form numbers, codes, IDs, exact wording</td></tr>
+        <tr><td><code>dense</code></td><td>Nearest neighbors of the question's embedding</td><td>Paraphrased questions with no shared keywords</td></tr>
+        <tr><td><code>filter</code></td><td>Metadata only, in document and page order</td><td>"What documents do we have about…" inventories</td></tr>
+      </table></div>
+
+      <h3>The hybrid pipeline</h3>
+      <figure>
+        <div class="diagram">
+          <svg viewBox="0 0 860 200" role="img" aria-labelledby="hy-t hy-d">
+            <title id="hy-t">Hybrid search pipeline</title>
+            <desc id="hy-d">The question goes to keyword search and vector search, each returning up to 50 candidates. Reciprocal Rank Fusion merges them. An optional reranker reorders the top 20, and the final order is set by the fusion setting.</desc>
+            <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+            <rect class="box" x="10" y="75" width="110" height="50" rx="8"/><text class="t" x="65" y="105" text-anchor="middle">Question</text>
+            <rect class="box" x="170" y="20" width="170" height="60" rx="8"/><text class="t" x="255" y="46" text-anchor="middle">Keyword search</text><text class="ts" x="255" y="66" text-anchor="middle">BM25 · top 50</text>
+            <rect class="box" x="170" y="120" width="170" height="60" rx="8"/><text class="t" x="255" y="146" text-anchor="middle">Vector search</text><text class="ts" x="255" y="166" text-anchor="middle">embedding · top 50</text>
+            <rect class="box-accent" x="390" y="70" width="150" height="60" rx="8"/><text class="t" x="465" y="96" text-anchor="middle">RRF fusion</text><text class="ts" x="465" y="116" text-anchor="middle">Σ 1 ÷ (k + rank)</text>
+            <rect class="box" x="590" y="70" width="120" height="60" rx="8"/><text class="t" x="650" y="96" text-anchor="middle">Rerank</text><text class="ts" x="650" y="116" text-anchor="middle">optional · top 20</text>
+            <rect class="box" x="760" y="75" width="90" height="50" rx="8"/><text class="t" x="805" y="105" text-anchor="middle">Results</text>
+            <path class="line" d="M120 100 H145 V50 H170" marker-end="url(#ah2)"/>
+            <path class="line" d="M120 100 H145 V150 H170" marker-end="url(#ah2)"/>
+            <path class="line" d="M340 50 H365 V90 H390" marker-end="url(#ah2)"/>
+            <path class="line" d="M340 150 H365 V110 H390" marker-end="url(#ah2)"/>
+            <path class="line" d="M540 100 H590" marker-end="url(#ah2)"/>
+            <path class="line" d="M710 100 H760" marker-end="url(#ah2)"/>
+          </svg>
+        </div>
+        <figcaption>Metadata filters apply inside both searches, so every candidate already matches them.</figcaption>
+      </figure>
+      <p>Keyword search treats any shared word as a match and lets BM25 rank passages that
+      share more, and rarer, words higher. Requiring every word would make natural-language
+      questions match nothing. If the vector embedder isn't available, hybrid search runs on
+      keywords alone and says so in the result's <code>notes</code>.</p>
+    </section>
+
+    <section id="ranking">
+      <h2>Ranking: RRF and reranking</h2>
+      <h3>Reciprocal Rank Fusion</h3>
+      <p>RRF merges rankings without comparing their incompatible scores. Each passage earns
+      1 ÷ (k + position) from every list it appears in, counting the top position as 0, and
+      the points are added. Passages near the top of several lists win.</p>
+      <p>The constant <code>rrf_k</code> (default 60) sets how much the very top positions
+      count. Passage A is 1st for keywords but 25th for vectors; passage B is 8th in both:</p>
+      <div class="table-wrap"><table>
+        <tr><th><code>rrf_k</code></th><th>A</th><th>B</th><th>Winner</th></tr>
+        <tr><td class="num">10</td><td class="num">0.129</td><td class="num">0.118</td><td>A: one standout ranking counts for a lot</td></tr>
+        <tr><td class="num">20</td><td class="num">0.073</td><td class="num">0.074</td><td>B, narrowly</td></tr>
+        <tr><td class="num">60</td><td class="num">0.029</td><td class="num">0.030</td><td>B: agreement between rankings counts more</td></tr>
+      </table></div>
+      <p>Use a low <code>rrf_k</code> (around 10) when a single exact match should win, as with
+      form numbers or contract clause references. Keep 60 or raise it when you trust passages
+      that both searches agree on.</p>
+
+      <h3>Reranking and the final order</h3>
+      <p>A reranker reads the question together with each of the top 20 passages and scores
+      relevance from 0 to 1. The <code>fusion</code> setting decides how that score is used:</p>
+      <div class="table-wrap"><table>
+        <tr><th><code>fusion</code></th><th>Final order</th><th>Prefer for</th></tr>
+        <tr><td><code>rerank</code> (default)</td><td>The reranker's order</td><td>Conversational questions where relevance is a judgment call</td></tr>
+        <tr><td><code>rrf</code></td><td>The reranker's ranking fused with the keyword and vector rankings</td><td>Codes, form numbers, statute and policy references, amounts</td></tr>
+      </table></div>
+      <p>With <code>rrf</code>, a passage that matches an exact term strongly isn't dropped on
+      one reranker judgment. Each result carries <code>rank_rrf</code> and
+      <code>rank_rerank</code>, so you can see how far reranking moved it.</p>
+    </section>
+
+    <section id="research">
+      <h2>Research and answers</h2>
+      <h3>research()</h3>
+      <p><code>research()</code> tries strategies in order and keeps the first convincing result:
+      hybrid with HyDE (when an LLM is configured), then plain hybrid, then keyword only. A
+      result is convincing when its best rerank score reaches 0.3. Without a reranker, the
+      first strategy that finds anything wins. The result reports <code>strategy</code> and
+      every <code>attempt</code>.</p>
+      <h3>HyDE</h3>
+      <p>Hypothetical Document Embeddings: an LLM writes a short passage that would answer the
+      question, and vector search uses that passage instead of the question. It bridges
+      wording gaps ("time off after having a baby" versus "parental leave"). Keyword search and
+      reranking still use the original question.</p>
+      <h3>answer()</h3>
+      <p><code>answer()</code> runs <code>research()</code>, then asks the configured LLM to answer
+      from the retrieved passages only. Answers cite passages as [1], [2], copy figures exactly
+      as written, and reply with a fixed sentence when the passages don't cover the question,
+      reported as <code>no_answer: true</code>. Answer style is yours to choose: most
+      applications let their own agent write the final answer from search results.</p>
+    </section>
+
+    <section id="providers">
+      <h2>Providers</h2>
+      <p>Every provider is optional and selected with a short spec string, or passed as your own
+      object implementing one method.</p>
+      <h3>Embedders: chosen by the KB</h3>
+      <p>Vectors can only be searched with the model that made them, so each KB records its
+      <code>embed_spec</code> and fuse-kb selects that embedder automatically. A spec read from a
+      file can only name a built-in provider, never custom code.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Spec</th><th>Runs</th><th>Install</th></tr>
+        <tr><td><code>bedrock</code></td><td>AWS (Titan Text Embeddings v2)</td><td><code>fuse-kb[bedrock]</code> + AWS credentials</td></tr>
+        <tr><td><code>ollama:&lt;model&gt;</code></td><td>Locally, through Ollama</td><td>Ollama with the model pulled</td></tr>
+        <tr><td><code>sentence-transformers:&lt;model&gt;</code></td><td>Locally, in process</td><td><code>fuse-kb[local]</code></td></tr>
+        <tr><td><code>openai:&lt;model&gt;</code></td><td>OpenAI or a compatible API</td><td><code>fuse-kb[openai]</code></td></tr>
+      </table></div>
+      <h3>Rerankers and LLMs</h3>
+      <div class="table-wrap"><table>
+        <tr><th>Kind</th><th>Specs</th></tr>
+        <tr><td>Reranker</td><td><code>cohere</code> (Cohere Rerank 3.5 on Bedrock), <code>cross-encoder:&lt;model&gt;</code> (local)</td></tr>
+        <tr><td>LLM</td><td><code>anthropic[:&lt;model&gt;]</code>, <code>bedrock:&lt;model-id&gt;</code>, <code>ollama:&lt;model&gt;</code>, <code>openai:&lt;model&gt;</code></td></tr>
+      </table></div>
+      <h3>What leaves the machine</h3>
+      <div class="table-wrap"><table>
+        <tr><th>Feature</th><th>Sent</th><th>To</th></tr>
+        <tr><td>Keyword, filter, page reading</td><td>Nothing</td><td>—</td></tr>
+        <tr><td>Vector search, cloud embedder</td><td>The question</td><td>The embedding provider</td></tr>
+        <tr><td>Reranking, <code>cohere</code></td><td>The question and top 20 passages</td><td>AWS Bedrock</td></tr>
+        <tr><td>HyDE, <code>answer()</code>, cloud LLM</td><td>The question and, for answers, the passages used</td><td>The LLM provider</td></tr>
+        <tr><td>Any local provider</td><td>Nothing</td><td>—</td></tr>
+      </table></div>
+    </section>
+
+    <section id="agents">
+      <h2>Agent integration</h2>
+      <p><code>Toolkit</code> turns a library of KBs into tool definitions and runs the calls. The
+      definitions follow your configuration: KB names become an enum, and reranking and HyDE
+      options appear only when they can work.</p>
+<pre>from fuse_kb import KBLibrary, Toolkit
+
+toolkit = Toolkit(KBLibrary("kbs/", reranker="cohere"))
+tools = toolkit.anthropic_tools()          <span class="c"># or toolkit.openai_tools()</span>
+result = toolkit.call("kb_research", {"kb": "handbook", "question": "..."})</pre>
+      <div class="table-wrap"><table>
+        <tr><th>Tool</th><th>Purpose</th></tr>
+        <tr><td><code>kb_list</code></td><td>Lists KBs with descriptions, so the agent can choose</td></tr>
+        <tr><td><code>kb_research</code></td><td>The default: hybrid search with automatic fallbacks</td></tr>
+        <tr><td><code>kb_search</code></td><td>One explicit mode, with <code>phrase</code>, <code>fusion</code>, <code>rrf_k</code>, and <code>hyde</code> options</td></tr>
+        <tr><td><code>kb_read_pages</code></td><td>Up to 6 consecutive pages, for tables or lists cut off at a passage edge</td></tr>
+        <tr><td><code>kb_documents</code></td><td>Lists a KB's documents</td></tr>
+        <tr><td><code>kb_answer</code></td><td>Grounded answer with citations (only with an LLM configured)</td></tr>
+      </table></div>
+      <p><strong>MCP:</strong> <code>fuse-kb mcp --path ./kbs</code> serves the same tools over
+      stdio to Claude Desktop, Claude Code, and other MCP clients, or over HTTP with
+      <code>--transport streamable-http</code>.</p>
+      <p><strong>Skill:</strong> <code>fuse-kb skill --install ~/.claude/skills</code> installs
+      instructions that teach an agent the search workflow, how to read scores, how to cite,
+      and to treat passage text as data.</p>
+    </section>
+
+    <section id="backends">
+      <h2>Hosted backends</h2>
+      <p>The tools talk to a small interface, <code>KBBackend</code>: <code>info</code>,
+      <code>documents</code>, <code>search</code>, <code>research</code>, <code>pages</code>,
+      <code>answer</code>, <code>close</code>. A local file is one implementation; a hosted Fuse
+      knowledge base is another. Register any backend in a library, and it appears in every
+      tool next to local files:</p>
+<pre>library = KBLibrary("kbs/")
+library.add("finance-policies", hosted_backend)   <span class="c"># same tools, same result shape</span></pre>
+      <p>Results use the same <code>Hit</code> shape everywhere, so citations and scores read the
+      same way when an evaluation moves from a downloaded file to a production backend.</p>
+    </section>
+
+    <section id="security">
+      <h2>Security model</h2>
+      <p>Enterprise document collections come from many authors, vendors, and systems. fuse-kb
+      assumes any document may be hostile and defends each path by which one could cause harm.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Threat</th><th>Defense</th></tr>
+        <tr><td>Instructions hidden in a document steer the model (prompt injection)</td><td>Hidden markup and sentences addressed to an AI are removed before any LLM sees a passage; Fuse also removes them at ingestion. Passages are delimited and marked untrusted, and delimiter look-alikes are neutralized.</td></tr>
+        <tr><td>An agent acts on injected text</td><td>Search results carry a <code>warning</code> on suspicious passages; tool descriptions, MCP instructions, and the skill tell agents never to follow passage text.</td></tr>
+        <tr><td>Ingestion rewrites content</td><td>Fuse accepts an LLM's cleaned text only if it adds no links or contact details and keeps every number; otherwise the extracted text is kept.</td></tr>
+        <tr><td>A KB file runs code</td><td>Files can only name built-in providers; custom classes load only from your own code or configuration.</td></tr>
+        <tr><td>A file is modified</td><td>Files open read-only and immutable; decrypted files are read-only in memory.</td></tr>
+        <tr><td>An agent reaches other files</td><td>KBs are addressed by name, and only names discovered on the configured path resolve.</td></tr>
+        <tr><td>SQL injection through filters</td><td>Filter columns come from a fixed list; values are always bound parameters.</td></tr>
+        <tr><td>A copied file is read</td><td>Optional PGP encryption with customer-held keys, decrypted only in memory.</td></tr>
+      </table></div>
+      <div class="callout warn"><strong>Detection is heuristic.</strong> Removing instruction-like
+      text stops common attacks and is tested against known phrasings without flagging normal
+      policy language, but no filter catches every novel phrasing. The defenses are layered for
+      that reason: removal, untrusted framing, grounded-answer rules, and agent warnings. Treat
+      model output as advice, and keep actions with consequences (payments, account changes)
+      behind human approval.</div>
+    </section>
+
+    <section id="encryption">
+      <h2>Encrypted files</h2>
+      <p>A <code>.sqlite.gpg</code> file opens like any other KB. GnuPG decrypts it to memory, and
+      SQLite reads it from there, so no readable copy touches disk. The key comes from your GnuPG
+      keyring, or for servers from <code>FUSE_KB_PGP_KEY</code> or <code>FUSE_KB_PGP_KEY_FILE</code>
+      with <code>FUSE_KB_PGP_PASSPHRASE</code>; an injected key lives in a temporary RAM keyring that
+      is deleted after use. Requires GnuPG and Python 3.11+. Setup and key handling are covered in
+      <a href="https://github.com/fuseais/fuse-kb/blob/main/docs/handling-kb-files.md#encrypted-downloads">Handling KB files safely</a>.</p>
+    </section>
+
+    <section id="results">
+      <h2>Reading results</h2>
+      <div class="table-wrap"><table>
+        <tr><th>Field</th><th>Meaning</th><th>Better is</th></tr>
+        <tr><td><code>score_final</code></td><td>The score that set the order</td><td>Higher, within one list</td></tr>
+        <tr><td><code>score_rerank</code></td><td>Reranker relevance, 0 to 1</td><td>Higher; above 0.3 usually relevant</td></tr>
+        <tr><td><code>score_rrf</code></td><td>Fused keyword and vector score</td><td>Higher</td></tr>
+        <tr><td><code>score_lexical</code></td><td>BM25</td><td>More negative</td></tr>
+        <tr><td><code>score_dense</code></td><td>Vector distance</td><td>Lower</td></tr>
+        <tr><td><code>rank_rrf</code>, <code>rank_rerank</code></td><td>Positions before and after reranking (0-based)</td><td>—</td></tr>
+        <tr><td><code>notes</code></td><td>Fallbacks and removals, such as keyword-only search</td><td>—</td></tr>
+        <tr><td><code>warning</code></td><td>Passage looks like it contains instructions to an AI</td><td>—</td></tr>
+      </table></div>
+      <p>Compare scores only within one result list; they aren't comparable across searches or modes.</p>
+    </section>
+
+    <section id="config">
+      <h2>Configuration</h2>
+      <div class="table-wrap"><table>
+        <tr><th>Variable</th><th>Sets</th></tr>
+        <tr><td><code>FUSE_KB_PATH</code></td><td>Folders or files holding KBs (default <code>./kbs</code>)</td></tr>
+        <tr><td><code>FUSE_KB_EMBEDDER</code></td><td>Override the KB's recorded embedder</td></tr>
+        <tr><td><code>FUSE_KB_RERANKER</code></td><td>Reranker spec</td></tr>
+        <tr><td><code>FUSE_KB_LLM</code></td><td>LLM spec for HyDE and answers</td></tr>
+        <tr><td><code>FUSE_KB_PGP_KEY</code>, <code>FUSE_KB_PGP_KEY_FILE</code>, <code>FUSE_KB_PGP_PASSPHRASE</code></td><td>Key for encrypted files</td></tr>
+        <tr><td><code>AWS_REGION</code>, <code>OLLAMA_HOST</code>, <code>OPENAI_BASE_URL</code></td><td>Provider endpoints</td></tr>
+      </table></div>
+    </section>
+
+    <section id="evaluating">
+      <h2>Evaluating RAG on your documents</h2>
+      <p>A short, repeatable evaluation tells you more than any benchmark:</p>
+      <ol class="steps">
+        <li><strong>Write 20 to 50 real questions</strong> from the people who will use the system,
+        each with the document and page that answers it. Include figures, dates, and exact-term
+        questions, plus a few the KB can't answer.</li>
+        <li><strong>Measure retrieval first.</strong> For each question, check whether the right page
+        appears in the top 5 results. Answer quality can't exceed retrieval quality.</li>
+        <li><strong>Compare settings:</strong> with and without a reranker, <code>fusion</code>
+        <code>rerank</code> versus <code>rrf</code>, and <code>rrf_k</code> at 10 and 60. Exact-term
+        heavy content (Legal, Payroll) often favors <code>rrf</code>.</li>
+        <li><strong>Then judge answers</strong>: correct, cited, figures exact, and an honest
+        "not found" for unanswerable questions.</li>
+        <li><strong>Include hostile documents</strong> in a test KB to confirm injected
+        instructions don't reach answers.</li>
+      </ol>
+      <p>Use <code>--json</code> on any CLI command to script the evaluation.</p>
+    </section>
+
+    <footer>
+      fuse-kb is open source under the license in the repository. Source, issues, and the file
+      format: <a href="https://github.com/fuseais/fuse-kb">github.com/fuseais/fuse-kb</a>.
+    </footer>
+  </main>
+</div>
+<script>
+  // Start with the contents collapsed on phones so the guide is visible first.
+  if (window.matchMedia("(max-width: 979px)").matches) {
+    document.querySelector("nav.toc details").removeAttribute("open");
+  }
+</script>
+</body>
+</html>

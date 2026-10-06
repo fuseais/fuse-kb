@@ -94,12 +94,12 @@ class EchoLLM(LLM):
         return self.reply
 
 
-def build_kb(path, meta=None, with_vectors=True):
+def build_kb(path, meta=None, with_vectors=True, chunks=None):
     conn = sqlite3.connect(path)
     conn.enable_load_extension(True)
     sqlite_vec.load(conn)
     conn.executescript(SCHEMA)
-    for i, (doc_id, name, page, text, cat, country) in enumerate(CHUNKS, 1):
+    for i, (doc_id, name, page, text, cat, country) in enumerate(chunks or CHUNKS, 1):
         conn.execute(
             "INSERT INTO chunks (chunk_id, document_id, document_name, source, "
             "page_number, total_pages, chunk_offset, chunk_text, "

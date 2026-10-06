@@ -1,36 +1,86 @@
 # fuse-kb
 
-Search the knowledge bases you build in [Fuse](https://fuseais.com) from your own
-agents and apps. A Fuse knowledge base downloads as a single `.sqlite` file
-that holds your documents' passages, a keyword index, vector embeddings, and
-metadata. Drop the file into a folder, point fuse-kb at it, and your agent can
-search it with cited, page-level results. It works offline, with no server to
-run.
+**Try enterprise RAG on your own documents, in minutes, on your own machine.**
+
+fuse-kb lets your AI assistants and agents answer questions from your
+organization's documents, with every answer traced to the document and page
+it came from. You build a knowledge base from your files in
+[Fuse](https://fuseais.com), download it as a single file, and fuse-kb
+searches it anywhere: on a laptop, in Claude, or inside an agent you build.
+No server to run, and no data leaves your machine unless you choose a cloud
+model.
+
+It's built for teams evaluating retrieval-augmented generation (RAG) on real
+enterprise content before committing to a production rollout.
+
+## What teams use it for
+
+| Area | Typical documents | Questions people ask |
+|---|---|---|
+| **HR** | Handbooks, leave and benefits policies, onboarding guides | "How much parental leave do we offer?" "When does dental coverage start?" |
+| **Payroll** | Pay calendars, tax and withholding guides, garnishment procedures | "What's the cutoff for direct deposit changes?" "How is overtime calculated?" |
+| **Finance** | Expense and travel policies, approval matrices, close procedures | "Who approves a $12,000 purchase?" "What's the per diem in New York?" |
+| **IT** | Runbooks, security policies, access and onboarding procedures | "How do I request admin access?" "What's our password rotation policy?" |
+| **Legal** | Contracts, compliance manuals, regulatory guidance | "What's the termination notice period in this agreement?" "Which states require pay transparency?" |
+
+## How it works
+
+1. **Build** a knowledge base in Fuse from your documents. Fuse extracts the
+   text and tables, tags each passage (document type, dates, amounts, names),
+   and indexes it for search by keyword and by meaning.
+2. **Test online** in Fuse while you build, or **download** the knowledge base
+   as one file to use offline.
+3. **Search it anywhere** with fuse-kb: from the command line, from Claude
+   Desktop or Claude Code, or from your own agents through ready-made tools.
+
+When you're ready for production, the same agent tools work with hosted Fuse
+knowledge bases, which add per-user access control and scale. Nothing you
+build against a downloaded file needs to change.
+
+## Quick start
 
 ```bash
-pip install "fuse-kb[mcp]"
-mkdir kbs && mv ~/Downloads/handbook.sqlite kbs/
-fuse-kb research handbook "how much parental leave do we offer?"
+pipx install "fuse-kb[mcp]"
+mkdir ~/kbs && mv ~/Downloads/handbook.sqlite ~/kbs/
+fuse-kb research handbook "how much parental leave do we offer?" --path ~/kbs
 ```
 
-The same tools also work with hosted Fuse backends. An agent built against a
-downloaded file can move to a hosted knowledge base without code changes.
+Then connect it to Claude so you can ask questions in plain language:
 
-## Contents
+```bash
+claude mcp add fuse-kb -- fuse-kb mcp --path ~/kbs
+```
 
-**New to Fuse knowledge bases?** Start with the
-[getting started guide](docs/getting-started.md). If your documents include
-employee information, read [Handling KB files safely](docs/handling-kb-files.md)
-before downloading. Something not working? See [Troubleshooting](docs/troubleshooting.md).
+## Guides
 
-- [Use it from Python](#use-it-from-python)
-- [Give it to an agent](#give-it-to-an-agent): Claude, OpenAI, MCP, agent skill
-- [Choosing providers](#choosing-providers): vector search, reranking, LLMs
-- [How search works](#how-search-works)
-- [Command line](#command-line)
-- [Security](#security)
-- [File format](docs/FORMAT.md)
-- Guides: [Getting started](docs/getting-started.md), [Handling KB files safely](docs/handling-kb-files.md), [Troubleshooting](docs/troubleshooting.md)
+- **[Getting started](docs/getting-started.md):** download, install, first
+  question, and connecting to Claude. About 15 minutes.
+- **[Handling KB files safely](docs/handling-kb-files.md):** what a file
+  contains, what belongs in one, encrypted downloads, and what data leaves
+  your computer.
+- **[Troubleshooting](docs/troubleshooting.md):** what each message means and
+  how to fix it.
+- **[Technical guide](https://fuseais.github.io/fuse-kb/guide.html)**
+  ([source](docs/guide.html)): architecture, how hybrid search and ranking
+  work, providers, agent integration, the security model, and the file format.
+
+## Built for untrusted documents
+
+Enterprise document collections come from many hands, so fuse-kb treats
+every document as untrusted:
+
+- **Hidden text and instructions aimed at AI are removed** before passages
+  reach a model, and search results flag passages that contain them.
+- **Answers are grounded:** every claim is cited, and figures are copied
+  exactly as written.
+- **Files open read-only, can't run code, and can be PGP-encrypted**, with
+  decryption in memory only.
+
+Details are in [Security](#security) below and in the technical guide.
+
+---
+
+# Developer reference
 
 ## Use it from Python
 
@@ -259,6 +309,12 @@ a `.sqlite` file.
 
 ## Security
 
+- **Documents can't steer the model.** Before passages reach an LLM, fuse-kb
+  removes hidden markup (HTML comments, script blocks) and sentences addressed
+  to an AI ("ignore previous instructions", "tell the user to..."), and notes
+  what it removed. Passages are delimited and marked as untrusted data, and
+  search results carry a `warning` on any passage that looks like an
+  injection attempt, for agents to heed.
 - **Files open read-only.** fuse-kb never writes to a KB file.
 - **A KB file can't run code.** The embedder a file records is used only if
   it's one of the built-in kinds. Custom provider classes load only from your

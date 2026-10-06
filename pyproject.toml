@@ -46,7 +46,7 @@ dev = ["pytest>=8"]
 fuse-kb = "fuse_kb.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/fuse-analytics/fuse-kb"
+Homepage = "https://github.com/fuseais/fuse-kb"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fuse_kb"]
